@@ -1,0 +1,245 @@
+/* ---- レポート：単一カラムレイアウト ---- */
+.report-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--space-4);
+  padding: var(--space-5);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow);
+  margin-bottom: var(--space-6);
+}
+
+.report-toolbar .field {
+  margin-bottom: 0;
+  flex: 1 1 180px;
+}
+
+.report-toolbar .generate {
+  width: auto;
+  flex: 0 0 auto;
+  margin-top: 0;
+  padding: 12px 24px;
+}
+
+/* ---- レポート本体（出力カード） ---- */
+.report-doc {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow);
+  overflow: hidden;
+  animation: rise var(--duration) var(--ease) both;
+}
+
+.report-doc-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-4);
+  padding: var(--space-5) var(--space-6);
+  background: linear-gradient(140deg, var(--accent), var(--accent-strong));
+  color: var(--accent-contrast);
+  flex-wrap: wrap;
+}
+
+.report-doc-head h2 {
+  font-size: var(--text-2xl);
+}
+
+.report-doc-head .sub {
+  font-size: var(--text-sm);
+  opacity: 0.85;
+  margin-top: 4px;
+}
+
+.report-doc-head .period {
+  text-align: right;
+  font-weight: 700;
+}
+
+.report-section {
+  padding: var(--space-5) var(--space-6);
+  border-bottom: 1px solid var(--border);
+}
+
+.report-section:last-child {
+  border-bottom: none;
+}
+
+.report-section h3 {
+  font-size: var(--text-lg);
+  margin-bottom: var(--space-4);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.report-section h3::before {
+  content: "";
+  width: 4px;
+  height: 18px;
+  border-radius: 2px;
+  background: var(--accent);
+}
+
+/* ---- KPIカード ---- */
+.kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: var(--space-3);
+}
+
+.kpi {
+  padding: var(--space-4);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface-2);
+}
+
+.kpi .kpi-label {
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+  font-weight: 600;
+}
+
+.kpi .kpi-value {
+  font-size: var(--text-2xl);
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  margin: 4px 0;
+  font-variant-numeric: tabular-nums;
+}
+
+.kpi .kpi-delta {
+  font-size: var(--text-sm);
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.kpi .kpi-delta[data-dir="up"] {
+  color: var(--positive);
+}
+
+.kpi .kpi-delta[data-dir="down"] {
+  color: var(--danger);
+}
+
+.kpi .kpi-delta[data-dir="flat"] {
+  color: var(--text-faint);
+}
+
+.kpi .kpi-prev {
+  font-size: var(--text-xs);
+  color: var(--text-faint);
+  margin-left: 6px;
+}
+
+/* ---- 推移チャート ---- */
+.chart {
+  display: flex;
+  align-items: flex-end;
+  gap: var(--space-3);
+  height: 200px;
+  padding-top: var(--space-4);
+}
+
+.chart-col {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  height: 100%;
+  justify-content: flex-end;
+}
+
+.chart-bar {
+  width: 100%;
+  max-width: 48px;
+  border-radius: 8px 8px 0 0;
+  background: linear-gradient(180deg, var(--accent), var(--accent-strong));
+  position: relative;
+  transition: height var(--duration) var(--ease);
+  min-height: 4px;
+}
+
+.chart-bar[data-latest="true"] {
+  background: linear-gradient(180deg, var(--warm), oklch(62% 0.17 45));
+}
+
+.chart-bar .chart-val {
+  position: absolute;
+  top: -20px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 0.68rem;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.chart-label {
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+}
+
+/* ---- 講評 ---- */
+.commentary-summary {
+  font-size: var(--text-base);
+  line-height: 1.9;
+  color: var(--text);
+  padding: var(--space-4);
+  background: var(--accent-soft);
+  border-radius: var(--radius);
+}
+
+.commentary-cols {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: var(--space-4);
+  margin-top: var(--space-4);
+}
+
+.commentary-block h4 {
+  font-size: var(--text-sm);
+  font-weight: 800;
+  margin-bottom: var(--space-2);
+}
+
+.commentary-block[data-kind="highlights"] h4 {
+  color: var(--positive);
+}
+
+.commentary-block[data-kind="issues"] h4 {
+  color: var(--danger);
+}
+
+.commentary-block[data-kind="suggestions"] h4 {
+  color: var(--accent-strong);
+}
+
+.commentary-block ul {
+  margin: 0;
+  padding-left: 1.2em;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.commentary-block li {
+  font-size: var(--text-sm);
+  line-height: 1.6;
+  color: var(--text-muted);
+}
+
+.report-actions {
+  display: flex;
+  gap: var(--space-2);
+  padding: var(--space-4) var(--space-6);
+  flex-wrap: wrap;
+}

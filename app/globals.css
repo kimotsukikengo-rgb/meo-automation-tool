@@ -1,0 +1,124 @@
+:root {
+  /* ---- Color (light, disciplined SaaS with a confident accent) ---- */
+  --bg: oklch(98.4% 0.004 270);
+  --bg-grain: oklch(96.5% 0.006 270);
+  --surface: oklch(100% 0 0);
+  --surface-2: oklch(97.8% 0.005 270);
+  --surface-sunken: oklch(96.2% 0.007 270);
+  --border: oklch(90% 0.008 270);
+  --border-strong: oklch(83% 0.012 270);
+
+  --text: oklch(22% 0.02 270);
+  --text-muted: oklch(48% 0.02 270);
+  --text-faint: oklch(62% 0.015 270);
+
+  --accent: oklch(54% 0.19 277);
+  --accent-strong: oklch(47% 0.2 277);
+  --accent-soft: oklch(95% 0.03 277);
+  --accent-contrast: oklch(99% 0 0);
+
+  --warm: oklch(72% 0.16 55);
+  --positive: oklch(62% 0.16 150);
+  --danger: oklch(58% 0.2 25);
+
+  /* ---- Typography ---- */
+  --font-sans: "Hiragino Kaku Gothic ProN", "Hiragino Sans", "Yu Gothic",
+    "Noto Sans JP", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+
+  --text-xs: 0.78rem;
+  --text-sm: 0.875rem;
+  --text-base: 1rem;
+  --text-lg: 1.125rem;
+  --text-xl: clamp(1.25rem, 1.1rem + 0.6vw, 1.5rem);
+  --text-2xl: clamp(1.6rem, 1.3rem + 1.4vw, 2.25rem);
+  --text-3xl: clamp(2rem, 1.5rem + 2.4vw, 3rem);
+
+  /* ---- Spacing & shape ---- */
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-5: 1.5rem;
+  --space-6: 2rem;
+  --space-8: 3rem;
+
+  --radius-sm: 8px;
+  --radius: 14px;
+  --radius-lg: 20px;
+  --radius-pill: 999px;
+
+  --shadow-sm: 0 1px 2px oklch(20% 0.02 270 / 0.06);
+  --shadow: 0 4px 16px oklch(20% 0.02 270 / 0.08), 0 1px 3px oklch(20% 0.02 270 / 0.05);
+  --shadow-lg: 0 18px 50px oklch(20% 0.04 270 / 0.14);
+
+  --duration-fast: 140ms;
+  --duration: 260ms;
+  --ease: cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  padding: 0;
+  margin: 0;
+}
+
+body {
+  font-family: var(--font-sans);
+  color: var(--text);
+  background:
+    radial-gradient(1200px 600px at 85% -10%, var(--accent-soft), transparent 60%),
+    radial-gradient(900px 500px at -10% 10%, oklch(95% 0.025 55), transparent 55%),
+    var(--bg);
+  background-attachment: fixed;
+  font-size: var(--text-base);
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+h1,
+h2,
+h3,
+h4 {
+  margin: 0;
+  line-height: 1.2;
+  letter-spacing: -0.01em;
+  font-weight: 700;
+}
+
+p {
+  margin: 0;
+}
+
+button {
+  font-family: inherit;
+  cursor: pointer;
+}
+
+input,
+textarea,
+select {
+  font-family: inherit;
+  font-size: var(--text-sm);
+  color: var(--text);
+}
+
+a {
+  color: var(--accent-strong);
+}
+
+::selection {
+  background: var(--accent);
+  color: var(--accent-contrast);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.001ms !important;
+    transition-duration: 0.001ms !important;
+  }
+}

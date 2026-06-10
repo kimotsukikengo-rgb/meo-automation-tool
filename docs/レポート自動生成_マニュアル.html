@@ -1,0 +1,585 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>レポート自動生成モジュール 活用マニュアル｜MEO自動化ツール</title>
+<style>
+  :root {
+    --c-bg: #f6f7f9;
+    --c-surface: #ffffff;
+    --c-text: #1c2127;
+    --c-text-soft: #5b6573;
+    --c-border: #e3e7ec;
+    --c-brand: #2f6df0;
+    --c-brand-soft: #eaf1fe;
+    --c-up: #1f9d62;
+    --c-up-soft: #e7f6ee;
+    --c-down: #d64545;
+    --c-warn: #b8770a;
+    --c-warn-soft: #fdf3e0;
+    --c-accent: #f08a2f;
+    --c-code-bg: #1c2330;
+    --c-code-text: #e6edf3;
+
+    --radius: 12px;
+    --radius-sm: 8px;
+    --shadow: 0 1px 2px rgba(16, 24, 40, .04), 0 4px 16px rgba(16, 24, 40, .06);
+    --shadow-soft: 0 1px 2px rgba(16, 24, 40, .04);
+
+    --space: clamp(1.5rem, 1rem + 2vw, 3rem);
+    --maxw: 920px;
+
+    --font: -apple-system, BlinkMacSystemFont, "Hiragino Kaku Gothic ProN",
+            "Hiragino Sans", "Yu Gothic UI", "Meiryo", system-ui, sans-serif;
+    --mono: "SFMono-Regular", Menlo, Consolas, "Liberation Mono", monospace;
+  }
+
+  * { box-sizing: border-box; }
+
+  html { scroll-behavior: smooth; }
+
+  body {
+    margin: 0;
+    font-family: var(--font);
+    color: var(--c-text);
+    background: var(--c-bg);
+    line-height: 1.75;
+    -webkit-font-smoothing: antialiased;
+    font-feature-settings: "palt";
+  }
+
+  /* ---------- Header ---------- */
+  .hero {
+    background: linear-gradient(135deg, #2f6df0 0%, #5a4be0 100%);
+    color: #fff;
+    padding: clamp(2.5rem, 2rem + 4vw, 4.5rem) var(--space) clamp(2rem, 1.5rem + 3vw, 3.5rem);
+  }
+  .hero-inner { max-width: var(--maxw); margin: 0 auto; }
+  .hero .eyebrow {
+    display: inline-block;
+    font-size: .8rem;
+    letter-spacing: .12em;
+    font-weight: 700;
+    background: rgba(255, 255, 255, .16);
+    padding: .35rem .85rem;
+    border-radius: 999px;
+    margin-bottom: 1.1rem;
+  }
+  .hero h1 {
+    font-size: clamp(1.7rem, 1.2rem + 2.6vw, 2.7rem);
+    line-height: 1.25;
+    margin: 0 0 .9rem;
+    font-weight: 800;
+    letter-spacing: .01em;
+  }
+  .hero p {
+    margin: 0;
+    font-size: clamp(1rem, .95rem + .3vw, 1.15rem);
+    max-width: 46rem;
+    color: rgba(255, 255, 255, .92);
+  }
+  .hero .meta {
+    margin-top: 1.6rem;
+    display: flex;
+    flex-wrap: wrap;
+    gap: .6rem 1.4rem;
+    font-size: .85rem;
+    color: rgba(255, 255, 255, .82);
+  }
+  .hero .meta span::before { content: "•"; margin-right: .5rem; opacity: .6; }
+
+  /* ---------- Layout ---------- */
+  main {
+    max-width: var(--maxw);
+    margin: 0 auto;
+    padding: var(--space);
+  }
+
+  /* ---------- TOC ---------- */
+  .toc {
+    background: var(--c-surface);
+    border: 1px solid var(--c-border);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow-soft);
+    padding: 1.4rem 1.6rem;
+    margin-bottom: var(--space);
+  }
+  .toc h2 {
+    font-size: .8rem;
+    letter-spacing: .1em;
+    color: var(--c-text-soft);
+    margin: 0 0 .9rem;
+    text-transform: uppercase;
+  }
+  .toc ol {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    gap: .4rem 1.4rem;
+    counter-reset: toc;
+  }
+  .toc li { counter-increment: toc; }
+  .toc a {
+    display: flex;
+    gap: .65rem;
+    align-items: baseline;
+    text-decoration: none;
+    color: var(--c-text);
+    padding: .4rem .3rem;
+    border-radius: var(--radius-sm);
+    transition: background .15s, color .15s;
+  }
+  .toc a::before {
+    content: counter(toc, decimal-leading-zero);
+    font-family: var(--mono);
+    font-size: .8rem;
+    color: var(--c-brand);
+    font-weight: 700;
+    flex-shrink: 0;
+  }
+  .toc a:hover { background: var(--c-brand-soft); color: var(--c-brand); }
+
+  /* ---------- Sections ---------- */
+  section { margin-bottom: clamp(2.5rem, 2rem + 2vw, 3.5rem); scroll-margin-top: 1.5rem; }
+
+  .sec-head {
+    display: flex;
+    align-items: center;
+    gap: .85rem;
+    margin-bottom: 1.3rem;
+    padding-bottom: .9rem;
+    border-bottom: 2px solid var(--c-border);
+  }
+  .sec-num {
+    flex-shrink: 0;
+    width: 2.2rem;
+    height: 2.2rem;
+    display: grid;
+    place-items: center;
+    background: var(--c-brand);
+    color: #fff;
+    border-radius: 9px;
+    font-weight: 800;
+    font-size: 1rem;
+    font-family: var(--mono);
+  }
+  .sec-head h2 {
+    margin: 0;
+    font-size: clamp(1.25rem, 1.1rem + .8vw, 1.6rem);
+    font-weight: 800;
+    letter-spacing: .01em;
+  }
+
+  h3 {
+    font-size: 1.1rem;
+    font-weight: 700;
+    margin: 1.8rem 0 .8rem;
+    color: var(--c-text);
+  }
+
+  p { margin: .7rem 0; color: var(--c-text); }
+
+  /* ---------- Cards / Surfaces ---------- */
+  .card {
+    background: var(--c-surface);
+    border: 1px solid var(--c-border);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow-soft);
+    padding: 1.4rem 1.6rem;
+  }
+
+  .two-col {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+  }
+  @media (max-width: 640px) { .two-col { grid-template-columns: 1fr; } }
+
+  /* feature lists */
+  ul.check, ul.x-list {
+    list-style: none;
+    margin: .6rem 0;
+    padding: 0;
+  }
+  ul.check li, ul.x-list li {
+    position: relative;
+    padding: .35rem 0 .35rem 1.9rem;
+  }
+  ul.check li::before {
+    content: "✓";
+    position: absolute;
+    left: 0;
+    top: .35rem;
+    width: 1.3rem; height: 1.3rem;
+    background: var(--c-up-soft);
+    color: var(--c-up);
+    border-radius: 50%;
+    display: grid; place-items: center;
+    font-size: .8rem; font-weight: 800;
+  }
+  ul.x-list li::before {
+    content: "—";
+    position: absolute;
+    left: 0;
+    top: .35rem;
+    width: 1.3rem; height: 1.3rem;
+    background: #f0f1f3;
+    color: var(--c-text-soft);
+    border-radius: 50%;
+    display: grid; place-items: center;
+    font-size: .9rem; font-weight: 800;
+  }
+
+  .card-h {
+    font-size: .95rem;
+    font-weight: 800;
+    margin: 0 0 .3rem;
+    display: flex; align-items: center; gap: .5rem;
+  }
+  .card.ok { border-top: 3px solid var(--c-up); }
+  .card.no { border-top: 3px solid var(--c-text-soft); }
+
+  /* ---------- Callout ---------- */
+  .callout {
+    border-radius: var(--radius);
+    padding: 1.2rem 1.4rem 1.2rem 1.5rem;
+    margin: 1.2rem 0;
+    border-left: 4px solid var(--c-warn);
+    background: var(--c-warn-soft);
+  }
+  .callout.info { border-left-color: var(--c-brand); background: var(--c-brand-soft); }
+  .callout .title {
+    font-weight: 800;
+    display: flex; align-items: center; gap: .5rem;
+    margin-bottom: .35rem;
+  }
+  .callout p { margin: .25rem 0; font-size: .95rem; }
+
+  /* ---------- Code ---------- */
+  pre {
+    background: var(--c-code-bg);
+    color: var(--c-code-text);
+    border-radius: var(--radius-sm);
+    padding: 1.1rem 1.3rem;
+    overflow-x: auto;
+    font-family: var(--mono);
+    font-size: .9rem;
+    line-height: 1.6;
+    margin: 1rem 0;
+  }
+  pre .c { color: #8b98a9; }
+  code:not(pre code) {
+    font-family: var(--mono);
+    background: #eef0f3;
+    color: #c0392b;
+    padding: .12em .45em;
+    border-radius: 5px;
+    font-size: .88em;
+  }
+
+  /* ---------- Tables ---------- */
+  .table-wrap { overflow-x: auto; margin: 1rem 0; }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    background: var(--c-surface);
+    border-radius: var(--radius);
+    overflow: hidden;
+    box-shadow: var(--shadow-soft);
+    border: 1px solid var(--c-border);
+    font-size: .92rem;
+  }
+  th, td { text-align: left; padding: .75rem 1rem; border-bottom: 1px solid var(--c-border); }
+  th { background: #f0f3f8; font-weight: 700; color: var(--c-text); white-space: nowrap; }
+  tbody tr:last-child td { border-bottom: none; }
+  tbody tr:hover { background: #fafbfc; }
+  td .yes { color: var(--c-up); font-weight: 700; }
+
+  /* ---------- Steps ---------- */
+  .steps { counter-reset: step; margin: 1rem 0; padding: 0; list-style: none; }
+  .steps > li {
+    counter-increment: step;
+    position: relative;
+    padding: .5rem 0 .5rem 2.6rem;
+    margin-bottom: .3rem;
+  }
+  .steps > li::before {
+    content: counter(step);
+    position: absolute; left: 0; top: .4rem;
+    width: 1.8rem; height: 1.8rem;
+    background: var(--c-brand-soft);
+    color: var(--c-brand);
+    border-radius: 50%;
+    display: grid; place-items: center;
+    font-weight: 800; font-size: .9rem;
+  }
+
+  /* ---------- KPI demo strip ---------- */
+  .kpi-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: .8rem;
+    margin: 1rem 0;
+  }
+  .kpi {
+    background: var(--c-surface);
+    border: 1px solid var(--c-border);
+    border-radius: var(--radius-sm);
+    padding: .9rem 1rem;
+    box-shadow: var(--shadow-soft);
+  }
+  .kpi .label { font-size: .78rem; color: var(--c-text-soft); }
+  .kpi .val { font-size: 1.4rem; font-weight: 800; margin: .15rem 0; }
+  .kpi .delta { font-size: .8rem; font-weight: 700; }
+  .kpi .delta.up { color: var(--c-up); }
+  .kpi .delta.down { color: var(--c-down); }
+
+  /* FAQ */
+  .faq { background: var(--c-surface); border: 1px solid var(--c-border); border-radius: var(--radius-sm); margin-bottom: .7rem; overflow: hidden; box-shadow: var(--shadow-soft); }
+  .faq summary {
+    cursor: pointer; padding: 1rem 1.3rem; font-weight: 700; list-style: none;
+    display: flex; align-items: center; gap: .6rem;
+  }
+  .faq summary::-webkit-details-marker { display: none; }
+  .faq summary::before { content: "Q"; color: var(--c-brand); font-weight: 800; font-family: var(--mono); }
+  .faq summary::after { content: "+"; margin-left: auto; color: var(--c-text-soft); font-size: 1.3rem; transition: transform .2s; }
+  .faq[open] summary::after { transform: rotate(45deg); }
+  .faq .a { padding: 0 1.3rem 1.1rem 2.6rem; color: var(--c-text-soft); }
+
+  /* ---------- Footer ---------- */
+  footer {
+    max-width: var(--maxw);
+    margin: 0 auto;
+    padding: 2rem var(--space) 3rem;
+    color: var(--c-text-soft);
+    font-size: .85rem;
+    border-top: 1px solid var(--c-border);
+  }
+
+  /* ---------- Print ---------- */
+  @media print {
+    body { background: #fff; }
+    .hero { background: #2f6df0 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    .toc, .faq summary::after { display: none; }
+    section, .card, table, pre, .callout { break-inside: avoid; }
+    .faq[open] .a, .faq .a { display: block; }
+    .faq summary { cursor: auto; }
+    a { color: var(--c-text); text-decoration: none; }
+  }
+</style>
+</head>
+<body>
+
+<header class="hero">
+  <div class="hero-inner">
+    <span class="eyebrow">MEO自動化ツール（試作）</span>
+    <h1>レポート自動生成モジュール<br />活用マニュアル</h1>
+    <p>GBPの月次データを集計し、AIが講評・改善提案つきの月次レポートを自動作成する機能の使い方をまとめた社内向け資料です。</p>
+    <div class="meta">
+      <span>対象：運用担当・ディレクター</span>
+      <span>画面：/reports</span>
+      <span>最終更新：2026-06-10</span>
+    </div>
+  </div>
+</header>
+
+<main>
+
+  <!-- TOC -->
+  <nav class="toc" aria-label="目次">
+    <h2>目次</h2>
+    <ol>
+      <li><a href="#s1">できること / できないこと</a></li>
+      <li><a href="#s2">起動方法</a></li>
+      <li><a href="#s3">画面の使い方</a></li>
+      <li><a href="#s4">レポートの活用</a></li>
+      <li><a href="#s5">AI講評の品質を上げる</a></li>
+      <li><a href="#s6">実データ連携への発展</a></li>
+      <li><a href="#s7">よくある質問</a></li>
+      <li><a href="#s8">今後の拡張</a></li>
+    </ol>
+  </nav>
+
+  <!-- 1 -->
+  <section id="s1">
+    <div class="sec-head"><div class="sec-num">1</div><h2>このツールでできること / できないこと</h2></div>
+
+    <div class="two-col">
+      <div class="card ok">
+        <p class="card-h">✅ できること</p>
+        <ul class="check">
+          <li>店舗・対象月を指定すると、<strong>主要指標を集計して月次レポートを自動生成</strong></li>
+          <li>KPIを<strong>前月比つきカード</strong>で表示（表示回数・クリック・通話・ルート検索・口コミ・評価）</li>
+          <li><strong>直近6か月の表示回数推移</strong>を棒グラフで可視化</li>
+          <li><strong>AIが講評を自動作成</strong>（総括／良かった点／課題／次月の改善提案）</li>
+          <li>レポート全文を<strong>ワンクリックでコピー</strong>、ブラウザの<strong>印刷→PDF保存</strong>にも対応</li>
+        </ul>
+      </div>
+      <div class="card no">
+        <p class="card-h">🚧 まだできないこと（試作の範囲外）</p>
+        <ul class="x-list">
+          <li>実GBPデータの取得（API連携が必要）</li>
+          <li>複数店舗の一括レポート</li>
+          <li>スライド（PowerPoint等）への自動書き出し<br />（テキストコピー＋印刷PDFで代替）</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="callout">
+      <div class="title">⚠️ 重要：現在のデータについて</div>
+      <p><strong>試作版のデータは「サンプル（自動生成）」です。</strong> 店舗名＋対象月から決定的に生成しており、実際のGBPの数値ではありません。</p>
+      <p>同じ店舗名・月を入力すれば毎回同じ数値が出ます（デモ用）。実データにするには GBP Performance API / Reviews API との連携が必要です（<a href="#s6">第6章</a>）。</p>
+    </div>
+  </section>
+
+  <!-- 2 -->
+  <section id="s2">
+    <div class="sec-head"><div class="sec-num">2</div><h2>起動方法</h2></div>
+    <pre><span class="c"># 初回のみ</span>
+npm install
+
+<span class="c"># 開発サーバー起動</span>
+npm run dev</pre>
+    <p>ブラウザで <code>http://localhost:3000/reports</code>（または上部ナビ「レポート」）を開きます。</p>
+  </section>
+
+  <!-- 3 -->
+  <section id="s3">
+    <div class="sec-head"><div class="sec-num">3</div><h2>画面の使い方</h2></div>
+
+    <h3>入力（上部ツールバー）</h3>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>項目</th><th>説明</th><th>例</th></tr></thead>
+        <tbody>
+          <tr><td>店舗名</td><td>対象店舗</td><td>月読 渋谷店</td></tr>
+          <tr><td>業種</td><td>業態</td><td>リラクゼーション</td></tr>
+          <tr><td>対象月</td><td>YYYY-MM 形式</td><td>2026-05</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p>「📊 レポートを生成」を押すと、下にレポートが表示されます。</p>
+
+    <h3>レポートの構成</h3>
+    <ol class="steps">
+      <li><strong>ヘッダー</strong>：店舗名・対象月・データ出所・講評の生成元（AI/サンプル）</li>
+      <li><strong>主要指標（前月比）</strong>：KPIカード（▲増加＝緑／▼減少＝赤）</li>
+      <li><strong>表示回数の推移</strong>：直近6か月の棒グラフ（最新月はオレンジ）</li>
+      <li><strong>講評</strong>：総括＋👍良かった点／⚠️課題／💡改善提案</li>
+      <li><strong>アクション</strong>：全文コピー／印刷・PDF保存</li>
+    </ol>
+
+    <h3>表示イメージ（KPIカード）</h3>
+    <div class="kpi-grid">
+      <div class="kpi"><div class="label">表示回数</div><div class="val">12,480</div><div class="delta up">▲ +8.2%</div></div>
+      <div class="kpi"><div class="label">クリック</div><div class="val">964</div><div class="delta up">▲ +5.1%</div></div>
+      <div class="kpi"><div class="label">通話</div><div class="val">132</div><div class="delta down">▼ -3.4%</div></div>
+      <div class="kpi"><div class="label">ルート検索</div><div class="val">418</div><div class="delta up">▲ +11.0%</div></div>
+      <div class="kpi"><div class="label">口コミ</div><div class="val">+9</div><div class="delta up">▲ +2件</div></div>
+      <div class="kpi"><div class="label">平均評価</div><div class="val">4.6</div><div class="delta up">▲ +0.1</div></div>
+    </div>
+    <p style="font-size:.8rem;color:var(--c-text-soft);">※ 上記はレイアウト確認用のサンプル表示です。実際の数値は入力した店舗名・対象月により異なります。</p>
+  </section>
+
+  <!-- 4 -->
+  <section id="s4">
+    <div class="sec-head"><div class="sec-num">4</div><h2>レポートの活用</h2></div>
+    <div class="two-col">
+      <div class="card">
+        <p class="card-h">📨 クライアント共有</p>
+        <p style="margin:0;font-size:.92rem;">「レポート全文をコピー」→ メール・チャット・ドキュメントに貼り付け。</p>
+      </div>
+      <div class="card">
+        <p class="card-h">📄 PDF化</p>
+        <p style="margin:0;font-size:.92rem;">「印刷 / PDF保存」→ ブラウザの印刷ダイアログで「PDFに保存」を選択。</p>
+      </div>
+    </div>
+    <div class="card" style="margin-top:1rem;">
+      <p class="card-h">🗂 定例会資料</p>
+      <p style="margin:0;font-size:.92rem;">コピーしたテキストをスライドのメモ欄や台本に転記。</p>
+    </div>
+  </section>
+
+  <!-- 5 -->
+  <section id="s5">
+    <div class="sec-head"><div class="sec-num">5</div><h2>AI講評の品質を上げる</h2></div>
+    <p>APIキー未設定時は、指標から組み立てたテンプレート講評（サンプル）になります。<strong>Claudeによる講評</strong>にすると、データの文脈をふまえたより自然で具体的な講評になります。</p>
+    <p><code>.env.local</code> に設定（投稿文生成マニュアル第5章と共通）：</p>
+    <pre>AI_GATEWAY_API_KEY=あなたのキー
+MEO_GENERATION_MODEL=anthropic/claude-sonnet-4-6</pre>
+    <div class="callout info">
+      <div class="title">💡 確認方法</div>
+      <p>ヘッダーの「講評: AI（…）」表示で、本生成（Claude）かサンプルかを確認できます。</p>
+    </div>
+  </section>
+
+  <!-- 6 -->
+  <section id="s6">
+    <div class="sec-head"><div class="sec-num">6</div><h2>実データ連携への発展</h2></div>
+    <p>試作では <code>lib/report-data.ts</code> がサンプル数値を返しています。ここを以下のAPI取得に差し替えると、実データのレポートになります。</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>データ</th><th>取得元API</th><th>取得できる主な指標</th></tr></thead>
+        <tbody>
+          <tr><td>表示回数・クリック・通話・ルート検索</td><td>Business Profile Performance API</td><td>各種パフォーマンス指標</td></tr>
+          <tr><td>口コミ件数・平均評価</td><td>Reviews API</td><td>レビュー一覧・評価</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="callout info">
+      <div class="title">📌 必要なもの</div>
+      <p>GBP API利用申請（審査・承認制）＋対象店舗の管理権限。</p>
+      <p>検索順位は公式APIに無いため、順位管理は別モジュール（外部手段）で扱います。</p>
+    </div>
+  </section>
+
+  <!-- 7 -->
+  <section id="s7">
+    <div class="sec-head"><div class="sec-num">7</div><h2>よくある質問</h2></div>
+
+    <details class="faq" open>
+      <summary>数値が実際のGBPと違います。</summary>
+      <div class="a">試作版はサンプルデータです（デモ用）。実データは第6章のAPI連携後に反映されます。</div>
+    </details>
+    <details class="faq">
+      <summary>毎回数値が変わりませんが？</summary>
+      <div class="a">仕様です。店舗名＋月をシードに決定的生成しているため、デモの再現性があります。</div>
+    </details>
+    <details class="faq">
+      <summary>レポートのデザインは変えられますか？</summary>
+      <div class="a">印刷PDFは画面レイアウトに準じます。体裁の要望があれば調整します。</div>
+    </details>
+  </section>
+
+  <!-- 8 -->
+  <section id="s8">
+    <div class="sec-head"><div class="sec-num">8</div><h2>今後の拡張</h2></div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>拡張</th><th>必要なもの</th><th>実現可否</th></tr></thead>
+        <tbody>
+          <tr><td>実データ取得（自動集計）</td><td>GBP Performance/Reviews API＋管理権限</td><td><span class="yes">◎ 可能</span></td></tr>
+          <tr><td>複数店舗の一括レポート</td><td>同上＋店舗マスタ</td><td><span class="yes">◎ 可能</span></td></tr>
+          <tr><td>月次自動実行＋メール送付</td><td>データ連携＋スケジューラ</td><td><span class="yes">◎ 可能</span></td></tr>
+          <tr><td>スライド自動生成</td><td>テンプレ＋生成連携</td><td><span class="yes">○ 可能</span></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="callout">
+      <div class="title">🔜 次のモジュール候補</div>
+      <p>順位管理（可否△＝公式API外のため、取得手段の決定が必要）。</p>
+    </div>
+  </section>
+
+</main>
+
+<footer>
+  MEO自動化ツール（試作）／ レポート自動生成モジュール 活用マニュアル — 社内共有用<br />
+  このページはブラウザの印刷機能からそのままPDF化できます（メニュー → 印刷 → PDFに保存）。
+</footer>
+
+</body>
+</html>
