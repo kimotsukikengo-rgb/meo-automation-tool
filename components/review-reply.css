@@ -87,6 +87,45 @@
   line-height: 1.6;
 }
 
+/* ---- 再来店促進チェックボックス ---- */
+.checkbox {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: var(--text-sm);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.checkbox input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--accent);
+}
+
+/* ---- リスク一覧 ---- */
+.risk-list {
+  margin: 0;
+  padding-left: 1.2em;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.risk-list li {
+  font-size: var(--text-sm);
+  line-height: 1.6;
+  color: var(--text-muted);
+}
+
+/* ---- 別案テキスト（読み取り専用） ---- */
+.alt-text {
+  font-size: var(--text-base);
+  line-height: 1.8;
+  color: var(--text);
+  white-space: pre-wrap;
+}
+
 /* ---- 口コミ原文プレビュー ---- */
 .review-quote {
   padding: var(--space-3) var(--space-4);
@@ -97,4 +136,69 @@
   color: var(--text-muted);
   line-height: 1.7;
   white-space: pre-wrap;
+}
+
+/* ---- GBP から取得した口コミ一覧 ---- */
+.gbp-panel {
+  margin-bottom: var(--space-4);
+}
+
+.gbp-review-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  list-style: none;
+  margin: var(--space-2) 0 0;
+  padding: 0;
+  max-height: 320px;
+  overflow-y: auto;
+}
+
+.gbp-review-item {
+  padding: var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  transition: border-color var(--duration-fast) var(--ease);
+}
+
+.gbp-review-item[data-selected="true"] {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px var(--accent-soft);
+}
+
+.gbp-review-top {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-bottom: 4px;
+}
+
+.gbp-review-stars {
+  color: oklch(70% 0.16 75);
+  font-size: var(--text-sm);
+  letter-spacing: 1px;
+}
+
+.gbp-review-name {
+  font-size: var(--text-xs);
+  font-weight: 700;
+  color: var(--text-muted);
+}
+
+.gbp-review-replied {
+  margin-left: auto;
+  font-size: 0.62rem;
+  font-weight: 700;
+  padding: 1px 8px;
+  border-radius: var(--radius-pill);
+  background: oklch(95% 0.06 150);
+  color: oklch(40% 0.12 150);
+}
+
+.gbp-review-comment {
+  font-size: var(--text-sm);
+  line-height: 1.6;
+  color: var(--text);
+  margin-bottom: var(--space-2);
 }

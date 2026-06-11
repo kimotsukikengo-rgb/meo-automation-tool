@@ -1,0 +1,311 @@
+/* ---- 設定・連携 画面 ---- */
+
+/* 動作モードのバナー（おためし / 本番をひと目で） */
+.set-mode {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  padding: var(--space-4) var(--space-5);
+  margin-bottom: var(--space-4);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-sm);
+}
+
+.set-mode[data-mode="demo"] {
+  background: oklch(96% 0.05 55);
+  border-color: oklch(86% 0.08 55);
+}
+
+.set-mode[data-mode="live"] {
+  background: oklch(95% 0.06 150);
+  border-color: oklch(85% 0.08 150);
+}
+
+.set-mode-icon {
+  font-size: 28px;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.set-mode-title {
+  font-size: var(--text-lg);
+  font-weight: 800;
+  color: var(--text);
+}
+
+.set-mode[data-mode="demo"] .set-mode-title {
+  color: oklch(42% 0.12 55);
+}
+
+.set-mode[data-mode="live"] .set-mode-title {
+  color: oklch(38% 0.12 150);
+}
+
+.set-mode-desc {
+  font-size: var(--text-sm);
+  color: var(--text-muted);
+  line-height: 1.55;
+  margin-top: 2px;
+}
+
+/* はじめての方へ ガイド（開閉式） */
+.set-guide,
+.set-detail {
+  margin-bottom: var(--space-5);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+  box-shadow: var(--shadow-sm);
+}
+
+.set-guide > summary,
+.set-detail > summary {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-4) var(--space-5);
+  font-weight: 700;
+  font-size: var(--text-sm);
+  color: var(--text);
+  cursor: pointer;
+  list-style: none;
+}
+
+.set-guide > summary::-webkit-details-marker,
+.set-detail > summary::-webkit-details-marker {
+  display: none;
+}
+
+.set-guide > summary::after,
+.set-detail > summary::after {
+  content: "▾";
+  margin-left: auto;
+  color: var(--text-faint);
+  transition: transform var(--duration-fast) var(--ease);
+}
+
+.set-guide[open] > summary::after,
+.set-detail[open] > summary::after {
+  transform: rotate(180deg);
+}
+
+.set-guide-icon {
+  font-size: 18px;
+}
+
+.set-steps {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  list-style: none;
+  margin: 0;
+  padding: 0 var(--space-5) var(--space-4);
+}
+
+.set-steps li {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+  font-size: var(--text-sm);
+  color: var(--text-muted);
+  line-height: 1.55;
+}
+
+.set-step-no {
+  flex-shrink: 0;
+  width: 24px;
+  height: 24px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  font-size: var(--text-xs);
+  font-weight: 800;
+  color: var(--accent-contrast);
+  background: linear-gradient(140deg, var(--accent), var(--accent-strong));
+}
+
+.set-guide-note {
+  padding: 0 var(--space-5) var(--space-4);
+  font-size: var(--text-xs);
+  color: var(--text-faint);
+  line-height: 1.6;
+}
+
+.set-guide-note code,
+.set-detail-list code {
+  font-size: 0.92em;
+  padding: 1px 5px;
+  border-radius: 5px;
+  background: var(--surface-sunken);
+}
+
+.set-detail-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  list-style: none;
+  margin: 0;
+  padding: 0 var(--space-5) var(--space-3);
+}
+
+.set-detail-list li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: var(--text-sm);
+  color: var(--text-muted);
+}
+
+.set-detail-list li::before {
+  content: "";
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.set-detail-list li[data-state="on"]::before {
+  background: oklch(60% 0.15 150);
+}
+
+.set-detail-list li[data-state="off"]::before {
+  background: oklch(70% 0.13 55);
+}
+
+.set-notice {
+  margin-bottom: var(--space-5);
+  padding: 12px 16px;
+  border-radius: var(--radius);
+  font-size: var(--text-sm);
+  font-weight: 600;
+}
+
+.set-notice.ok {
+  background: oklch(95% 0.06 150);
+  border: 1px solid oklch(85% 0.08 150);
+  color: oklch(38% 0.12 150);
+}
+
+.set-notice.err {
+  background: oklch(96% 0.04 25);
+  border: 1px solid oklch(85% 0.08 25);
+  color: oklch(45% 0.15 25);
+}
+
+.set-connect {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-5);
+  flex-wrap: wrap;
+  padding: var(--space-5);
+  margin-bottom: var(--space-6);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+}
+
+.set-connect h2 {
+  font-size: var(--text-xl);
+  margin-bottom: var(--space-1);
+}
+
+.set-sub {
+  color: var(--text-faint);
+  font-size: var(--text-sm);
+  max-width: 60ch;
+  line-height: 1.6;
+}
+
+.set-connect-btn {
+  width: auto;
+  margin-top: 0;
+  flex-shrink: 0;
+  text-decoration: none;
+  padding: 12px 24px;
+}
+
+.set-count {
+  font-size: var(--text-sm);
+  font-weight: 700;
+  color: var(--accent-strong);
+  background: var(--accent-soft);
+  padding: 2px 10px;
+  border-radius: var(--radius-pill);
+  margin-left: 4px;
+}
+
+.store-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.store-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  padding: var(--space-4);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+  transition: box-shadow var(--duration) var(--ease),
+    transform var(--duration) var(--ease);
+}
+
+.store-row:hover {
+  box-shadow: var(--shadow);
+  transform: translateY(-1px);
+}
+
+.store-main {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.store-name {
+  font-weight: 800;
+  font-size: var(--text-base);
+  color: var(--text);
+}
+
+.store-meta {
+  font-size: var(--text-xs);
+  color: var(--text-faint);
+  font-variant-numeric: tabular-nums;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.store-disconnect {
+  flex-shrink: 0;
+  padding: 8px 16px;
+  font-size: var(--text-sm);
+  font-weight: 700;
+  color: var(--text-muted);
+  background: var(--surface);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-pill);
+  transition: all var(--duration-fast) var(--ease);
+}
+
+.store-disconnect:hover:not(:disabled) {
+  color: var(--danger);
+  border-color: var(--danger);
+  transform: translateY(-1px);
+}
+
+.store-disconnect:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}

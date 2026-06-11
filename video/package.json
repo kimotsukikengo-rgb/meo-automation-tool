@@ -1,0 +1,26 @@
+{
+  "name": "meo-studio-manual-video",
+  "version": "1.0.0",
+  "private": true,
+  "description": "MEO Studio 運用マニュアル動画（Remotion）",
+  "scripts": {
+    "dev": "remotion studio",
+    "render": "remotion render Manual out/MEO-Studio-運用マニュアル.mp4",
+    "render:gbp": "remotion render GbpManual out/GBP連携マニュアル.mp4",
+    "render:usage": "remotion render UsageGuide out/MEO-Studio-操作マニュアル.mp4",
+    "render:all": "npm run render && npm run render:gbp && npm run render:usage",
+    "render:still": "remotion still Manual out/cover.png --frame=60"
+  },
+  "dependencies": {
+    "@remotion/google-fonts": "4.0.475",
+    "@remotion/transitions": "4.0.475",
+    "react": "19.1.0",
+    "react-dom": "19.1.0",
+    "remotion": "4.0.475"
+  },
+  "devDependencies": {
+    "@remotion/cli": "4.0.475",
+    "@types/react": "^19.0.0",
+    "typescript": "^5.7.0"
+  }
+}

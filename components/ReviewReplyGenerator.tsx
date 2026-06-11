@@ -5,32 +5,103 @@ import "./ui.css";
 import "./review-reply.css";
 import AppBar from "./AppBar";
 import {
+  ApologyMode,
+  APOLOGY_LABELS,
+  APOLOGY_MODES,
+  ReplyLength,
+  REPLY_LENGTHS,
+  REPLY_LENGTH_LABELS,
   ReplyResponse,
   ReplyTone,
   REPLY_TONES,
   REPLY_TONE_LABELS,
   SENTIMENT_LABELS,
 } from "@/lib/review-types";
+import { usePersistentState } from "@/lib/usePersistentState";
+import { useGbpStores } from "@/lib/useGbpStores";
 
 interface FormState {
   storeName: string;
   category: string;
-  reviewText: string;
   rating: number;
+  reviewText: string;
   reviewerName: string;
+  usedService: string;
+  visitTime: string;
   replyTone: ReplyTone;
-  count: number;
+  storeMessage: string;
+  encourageReturn: boolean;
+  apology: ApologyMode;
+  ngExpressions: string;
+  length: ReplyLength;
 }
 
 const INITIAL: FormState = {
   storeName: "",
   category: "",
-  reviewText: "",
   rating: 5,
+  reviewText: "",
   reviewerName: "",
+  usedService: "",
+  visitTime: "",
   replyTone: "sincere",
-  count: 3,
+  storeMessage: "",
+  encourageReturn: true,
+  apology: "auto",
+  ngExpressions: "",
+  length: "standard",
 };
+
+/** デモ用サンプル（押すたびに切り替わる：ネガ／ポジ／中立） */
+const SAMPLES: FormState[] = [
+  {
+    storeName: "リラクゼーションサロン 月読 渋谷店",
+    category: "リラクゼーション",
+    rating: 2,
+    reviewText:
+      "施術はよかったのですが、予約時間より20分待たされました。受付の対応も少し残念でした。",
+    reviewerName: "田中",
+    usedService: "全身もみほぐし60分",
+    visitTime: "先週末",
+    replyTone: "sincere",
+    storeMessage: "受付体制を見直し、待ち時間の短縮に取り組んでいます",
+    encourageReturn: true,
+    apology: "yes",
+    ngExpressions: "言い訳・反論に聞こえる表現",
+    length: "standard",
+  },
+  {
+    storeName: "トラットリア・ソルレオーネ 横浜店",
+    category: "イタリアン",
+    rating: 5,
+    reviewText:
+      "記念日に利用しました。料理も雰囲気も最高で、スタッフの方の心遣いに感動しました。また絶対来ます！",
+    reviewerName: "佐藤",
+    usedService: "ディナーコース",
+    visitTime: "記念日のディナー",
+    replyTone: "warm",
+    storeMessage: "記念日プランもご用意しています",
+    encourageReturn: true,
+    apology: "auto",
+    ngExpressions: "",
+    length: "standard",
+  },
+  {
+    storeName: "hair atelier LUCE 表参道",
+    category: "美容室",
+    rating: 3,
+    reviewText: "仕上がりは満足です。ただ、少し待ち時間が気になりました。",
+    reviewerName: "",
+    usedService: "カット＋カラー",
+    visitTime: "平日午後",
+    replyTone: "formal",
+    storeMessage: "予約枠の調整で待ち時間の改善を進めています",
+    encourageReturn: true,
+    apology: "auto",
+    ngExpressions: "",
+    length: "short",
+  },
+];
 
 const SENTIMENT_ICON: Record<string, string> = {
   positive: "😊",
@@ -38,19 +109,53 @@ const SENTIMENT_ICON: Record<string, string> = {
   negative: "⚠️",
 };
 
+type CopyKey = "reply" | "polite" | "short";
+
+/** GBP から取得した口コミ（UI 用の軽量型） */
+interface GbpReviewLite {
+  reviewId: string;
+  reviewerName: string;
+  starRating: number;
+  comment: string;
+  hasReply: boolean;
+}
+
 export default function ReviewReplyGenerator() {
-  const [form, setForm] = useState<FormState>(INITIAL);
+  const [form, setForm] = usePersistentState<FormState>("meo:review:form", INITIAL);
   const [loading, setLoading] = useState(false);
-  const [result, setResult] = useState<ReplyResponse | null>(null);
-  const [bodies, setBodies] = useState<string[]>([]);
+  const [result, setResult] = usePersistentState<ReplyResponse | null>(
+    "meo:review:result",
+    null,
+  );
+  const [reply, setReply] = usePersistentState<string>("meo:review:reply", "");
   const [error, setError] = useState<string | null>(null);
-  const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
+  const [copiedKey, setCopiedKey] = useState<CopyKey | null>(null);
+  const [sampleIdx, setSampleIdx] = useState(0);
+  const { stores: gbpStores } = useGbpStores();
+  const [gbpStoreId, setGbpStoreId] = useState("");
+  const [gbpReviews, setGbpReviews] = useState<GbpReviewLite[]>([]);
+  const [fetchingReviews, setFetchingReviews] = useState(false);
+  const [selectedReviewId, setSelectedReviewId] = useState<string | null>(null);
+  const [replyPosting, setReplyPosting] = useState(false);
+  const [replyPosted, setReplyPosted] = useState(false);
 
   const canSubmit =
     form.storeName.trim() && form.category.trim() && form.reviewText.trim();
 
   function update<K extends keyof FormState>(key: K, value: FormState[K]) {
     setForm((prev) => ({ ...prev, [key]: value }));
+  }
+
+  function loadSample() {
+    setForm(SAMPLES[sampleIdx % SAMPLES.length]);
+    setSampleIdx((i) => i + 1);
+  }
+
+  function clearAll() {
+    setForm(INITIAL);
+    setResult(null);
+    setReply("");
+    setError(null);
   }
 
   async function handleGenerate() {
@@ -69,7 +174,7 @@ export default function ReviewReplyGenerator() {
       }
       const data: ReplyResponse = await res.json();
       setResult(data);
-      setBodies(data.replies.map((r) => r.body));
+      setReply(data.reply);
     } catch (e) {
       setError(e instanceof Error ? e.message : "予期しないエラーが発生しました");
     } finally {
@@ -77,15 +182,101 @@ export default function ReviewReplyGenerator() {
     }
   }
 
-  async function handleCopy(index: number) {
+  async function handleCopy(key: CopyKey, text: string) {
     try {
-      await navigator.clipboard.writeText(bodies[index] ?? "");
-      setCopiedIndex(index);
-      setTimeout(() => setCopiedIndex((c) => (c === index ? null : c)), 1800);
+      await navigator.clipboard.writeText(text);
+      setCopiedKey(key);
+      setTimeout(() => setCopiedKey((c) => (c === key ? null : c)), 1800);
     } catch {
       setError("クリップボードへのコピーに失敗しました");
     }
   }
+
+  async function handleFetchReviews() {
+    if (!gbpStoreId) {
+      setError("先に取得元の店舗を選択してください");
+      return;
+    }
+    setFetchingReviews(true);
+    setError(null);
+    try {
+      const res = await fetch(
+        `/api/gbp/reviews?storeId=${encodeURIComponent(gbpStoreId)}`,
+      );
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || `取得に失敗しました (${res.status})`);
+      }
+      type RawReview = {
+        reviewId: string;
+        reviewerName: string;
+        starRating: number;
+        comment: string;
+        reply?: unknown;
+      };
+      setGbpReviews(
+        (data.reviews ?? []).map((r: RawReview) => ({
+          reviewId: r.reviewId,
+          reviewerName: r.reviewerName,
+          starRating: r.starRating,
+          comment: r.comment,
+          hasReply: Boolean(r.reply),
+        })),
+      );
+      setSelectedReviewId(null);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "口コミの取得に失敗しました");
+    } finally {
+      setFetchingReviews(false);
+    }
+  }
+
+  function selectReview(r: GbpReviewLite) {
+    setForm((prev) => ({
+      ...prev,
+      reviewText: r.comment,
+      rating: r.starRating || prev.rating,
+      reviewerName: r.reviewerName === "匿名" ? "" : r.reviewerName,
+    }));
+    setSelectedReviewId(r.reviewId);
+    setReplyPosted(false);
+  }
+
+  async function handlePostReply() {
+    if (!gbpStoreId || !selectedReviewId) {
+      setError("GBPから取得した口コミを選択してください");
+      return;
+    }
+    if (!reply.trim()) {
+      setError("返信文が空です");
+      return;
+    }
+    setReplyPosting(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/gbp/reviews", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          storeId: gbpStoreId,
+          reviewId: selectedReviewId,
+          comment: reply,
+        }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(data.error || `投稿に失敗しました (${res.status})`);
+      }
+      setReplyPosted(true);
+      setTimeout(() => setReplyPosted(false), 2400);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "返信の投稿に失敗しました");
+    } finally {
+      setReplyPosting(false);
+    }
+  }
+
+  const replyCount = [...reply].length;
 
   return (
     <div className="shell">
@@ -96,14 +287,93 @@ export default function ReviewReplyGenerator() {
           <span className="eyebrow">口コミ管理</span>
           <h1>口コミ返信生成</h1>
           <p>
-            口コミ本文と星評価を入力すると、返信文をAIが複数案作成します。
-            ネガティブな口コミは自動で判定し、担当者へのエスカレーションを促します。
+            口コミ内容と条件を入力すると、公開返信文に加えて「返信の意図」「注意すべきリスク」
+            「より丁寧な別案」「短めの別案」までAIが作成します。低評価は自動判定し担当者へ通知します。
           </p>
         </section>
 
         <div className="grid">
           {/* ---- 入力フォーム ---- */}
           <section className="formcard" aria-label="口コミ情報の入力">
+            <div className="sample-bar">
+              <button type="button" className="sample-btn" onClick={loadSample}>
+                🎲 サンプルを入力
+              </button>
+              <button
+                type="button"
+                className="clear-btn"
+                onClick={clearAll}
+                disabled={loading}
+              >
+                🗑 クリア
+              </button>
+            </div>
+
+            {gbpStores.length > 0 ? (
+              <div className="gbp-panel">
+                <div className="gbp-bar">
+                  <label htmlFor="gbpReviewStore">GBP口コミ取得</label>
+                  <select
+                    id="gbpReviewStore"
+                    value={gbpStoreId}
+                    onChange={(e) => setGbpStoreId(e.target.value)}
+                  >
+                    <option value="">店舗を選択…</option>
+                    {gbpStores.map((s) => (
+                      <option key={s.id} value={s.id}>
+                        {s.storeLabel}
+                      </option>
+                    ))}
+                  </select>
+                  <button
+                    type="button"
+                    className="btn"
+                    disabled={!gbpStoreId || fetchingReviews}
+                    onClick={handleFetchReviews}
+                  >
+                    {fetchingReviews ? "取得中…" : "口コミを取得"}
+                  </button>
+                </div>
+                {gbpReviews.length > 0 && (
+                  <ul className="gbp-review-list">
+                    {gbpReviews.map((r) => (
+                      <li
+                        key={r.reviewId}
+                        className="gbp-review-item"
+                        data-selected={selectedReviewId === r.reviewId}
+                      >
+                        <div className="gbp-review-top">
+                          <span className="gbp-review-stars" aria-hidden>
+                            {"★".repeat(r.starRating)}
+                            {"☆".repeat(Math.max(0, 5 - r.starRating))}
+                          </span>
+                          <span className="gbp-review-name">
+                            {r.reviewerName}
+                          </span>
+                          {r.hasReply && (
+                            <span className="gbp-review-replied">返信済み</span>
+                          )}
+                        </div>
+                        <p className="gbp-review-comment">{r.comment}</p>
+                        <button
+                          type="button"
+                          className="sample-btn"
+                          onClick={() => selectReview(r)}
+                        >
+                          この口コミで返信を作成
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            ) : (
+              <p className="gbp-hint">
+                GBPの口コミを取得・返信するには、<a href="/settings">設定・連携</a>
+                で店舗を連携してください。
+              </p>
+            )}
+
             <div className="row2">
               <div className="field">
                 <label htmlFor="storeName">
@@ -132,7 +402,7 @@ export default function ReviewReplyGenerator() {
             </div>
 
             <div className="field">
-              <label>星評価</label>
+              <label>口コミ評価</label>
               <div className="stars" role="group" aria-label="星評価">
                 {[1, 2, 3, 4, 5].map((n) => (
                   <button
@@ -156,22 +426,61 @@ export default function ReviewReplyGenerator() {
               <textarea
                 id="reviewText"
                 style={{ minHeight: "120px" }}
-                placeholder="例：施術はよかったのですが、予約時間より20分待たされました。受付の対応も少し残念でした。"
+                placeholder="例：施術はよかったのですが、予約時間より20分待たされました。"
                 value={form.reviewText}
                 onChange={(e) => update("reviewText", e.target.value)}
               />
             </div>
 
+            <div className="row2">
+              <div className="field">
+                <label htmlFor="reviewerName">
+                  投稿者名 <span className="hint">任意</span>
+                </label>
+                <input
+                  id="reviewerName"
+                  type="text"
+                  placeholder="田中"
+                  value={form.reviewerName}
+                  onChange={(e) => update("reviewerName", e.target.value)}
+                />
+              </div>
+              <div className="field">
+                <label htmlFor="visitTime">
+                  来店時期 <span className="hint">任意</span>
+                </label>
+                <input
+                  id="visitTime"
+                  type="text"
+                  placeholder="先週末 / 記念日"
+                  value={form.visitTime}
+                  onChange={(e) => update("visitTime", e.target.value)}
+                />
+              </div>
+            </div>
+
             <div className="field">
-              <label htmlFor="reviewerName">
-                投稿者名 <span className="hint">任意</span>
+              <label htmlFor="usedService">
+                来店サービス <span className="hint">任意</span>
               </label>
               <input
-                id="reviewerName"
+                id="usedService"
                 type="text"
-                placeholder="例：田中"
-                value={form.reviewerName}
-                onChange={(e) => update("reviewerName", e.target.value)}
+                placeholder="全身もみほぐし60分"
+                value={form.usedService}
+                onChange={(e) => update("usedService", e.target.value)}
+              />
+            </div>
+
+            <div className="field">
+              <label htmlFor="storeMessage">
+                店舗として伝えたいこと <span className="hint">任意</span>
+              </label>
+              <textarea
+                id="storeMessage"
+                placeholder="受付体制を見直し、待ち時間の短縮に取り組んでいます"
+                value={form.storeMessage}
+                onChange={(e) => update("storeMessage", e.target.value)}
               />
             </div>
 
@@ -191,19 +500,63 @@ export default function ReviewReplyGenerator() {
               </div>
             </div>
 
+            <div className="row2">
+              <div className="field">
+                <label htmlFor="length">文字数目安</label>
+                <select
+                  id="length"
+                  value={form.length}
+                  onChange={(e) =>
+                    update("length", e.target.value as ReplyLength)
+                  }
+                >
+                  {REPLY_LENGTHS.map((l) => (
+                    <option key={l} value={l}>
+                      {REPLY_LENGTH_LABELS[l]}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="field">
+                <label htmlFor="apology">謝罪の要否</label>
+                <select
+                  id="apology"
+                  value={form.apology}
+                  onChange={(e) =>
+                    update("apology", e.target.value as ApologyMode)
+                  }
+                >
+                  {APOLOGY_MODES.map((a) => (
+                    <option key={a} value={a}>
+                      {APOLOGY_LABELS[a]}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
             <div className="field">
-              <label htmlFor="count">生成する案の数</label>
-              <select
-                id="count"
-                value={form.count}
-                onChange={(e) => update("count", Number(e.target.value))}
-              >
-                {[2, 3, 4].map((n) => (
-                  <option key={n} value={n}>
-                    {n}案
-                  </option>
-                ))}
-              </select>
+              <label htmlFor="ngExpressions">
+                NG表現 <span className="hint">任意</span>
+              </label>
+              <input
+                id="ngExpressions"
+                type="text"
+                placeholder="言い訳・反論に聞こえる表現 など"
+                value={form.ngExpressions}
+                onChange={(e) => update("ngExpressions", e.target.value)}
+              />
+            </div>
+
+            <div className="field">
+              <label className="checkbox">
+                <input
+                  type="checkbox"
+                  checked={form.encourageReturn}
+                  onChange={(e) => update("encourageReturn", e.target.checked)}
+                />
+                再来店を促す一文を入れる
+              </label>
             </div>
 
             <button
@@ -281,48 +634,115 @@ export default function ReviewReplyGenerator() {
 
             {result && (
               <div className="cards">
-                {result.replies.map((r, i) => {
-                  const count = [...(bodies[i] ?? "")].length;
-                  return (
-                    <article
-                      className="postcard"
-                      key={i}
-                      style={{ animationDelay: `${i * 70}ms` }}
+                {/* メイン返信文 */}
+                <article className="postcard">
+                  <div className="postcard-head">
+                    <span className="postcard-index">
+                      <span className="num">返</span>
+                      口コミ返信文（メイン案）
+                    </span>
+                    <span className="charcount">{replyCount} 字</span>
+                  </div>
+                  <div className="postcard-body">
+                    <textarea
+                      className="post-text"
+                      value={reply}
+                      onChange={(e) => setReply(e.target.value)}
+                      aria-label="口コミ返信文"
+                    />
+                    <div className="pattern-meta">
+                      <div className="meta-item">
+                        <span className="meta-label">🎯 返信の意図</span>
+                        <span className="meta-value">{result.intent}</span>
+                      </div>
+                      {result.risks.length > 0 && (
+                        <div className="meta-item">
+                          <span className="meta-label">⚠️ 注意すべきリスク</span>
+                          <ul className="risk-list">
+                            {result.risks.map((r, i) => (
+                              <li key={i}>{r}</li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                  <div className="postcard-foot">
+                    <button
+                      type="button"
+                      className="btn btn-primary"
+                      data-copied={copiedKey === "reply"}
+                      onClick={() => handleCopy("reply", reply)}
                     >
-                      <div className="postcard-head">
-                        <span className="postcard-index">
-                          <span className="num">{i + 1}</span>
-                          返信案 {i + 1}
-                        </span>
-                        <span className="charcount">{count} 字</span>
-                      </div>
-                      <div className="postcard-body">
-                        <textarea
-                          className="post-text"
-                          value={bodies[i] ?? ""}
-                          onChange={(e) =>
-                            setBodies((prev) => {
-                              const next = [...prev];
-                              next[i] = e.target.value;
-                              return next;
-                            })
-                          }
-                          aria-label={`返信案 ${i + 1} 本文`}
-                        />
-                      </div>
-                      <div className="postcard-foot">
-                        <button
-                          type="button"
-                          className="btn btn-primary"
-                          data-copied={copiedIndex === i}
-                          onClick={() => handleCopy(i)}
-                        >
-                          {copiedIndex === i ? "✓ コピーしました" : "返信文をコピー"}
-                        </button>
-                      </div>
-                    </article>
-                  );
-                })}
+                      {copiedKey === "reply" ? "✓ コピーしました" : "返信文をコピー"}
+                    </button>
+                    {selectedReviewId && gbpStoreId && (
+                      <button
+                        type="button"
+                        className="btn"
+                        disabled={replyPosting}
+                        onClick={handlePostReply}
+                      >
+                        {replyPosting
+                          ? "投稿中…"
+                          : replyPosted
+                            ? "✓ GBPに返信を投稿しました"
+                            : "GBPに返信を投稿"}
+                      </button>
+                    )}
+                  </div>
+                </article>
+
+                {/* 別案 */}
+                <article className="postcard">
+                  <div className="postcard-head">
+                    <span className="postcard-index">
+                      <span className="num">丁</span>
+                      より丁寧な別案
+                    </span>
+                    <span className="charcount">
+                      {[...result.politeAlt].length} 字
+                    </span>
+                  </div>
+                  <div className="postcard-body">
+                    <p className="alt-text">{result.politeAlt}</p>
+                  </div>
+                  <div className="postcard-foot">
+                    <button
+                      type="button"
+                      className="btn"
+                      data-copied={copiedKey === "polite"}
+                      onClick={() => handleCopy("polite", result.politeAlt)}
+                    >
+                      {copiedKey === "polite" ? "✓ コピーしました" : "この案をコピー"}
+                    </button>
+                  </div>
+                </article>
+
+                <article className="postcard">
+                  <div className="postcard-head">
+                    <span className="postcard-index">
+                      <span className="num">短</span>
+                      短めの別案
+                    </span>
+                    <span className="charcount">
+                      {[...result.shortAlt].length} 字
+                    </span>
+                  </div>
+                  <div className="postcard-body">
+                    <p className="alt-text">{result.shortAlt}</p>
+                  </div>
+                  <div className="postcard-foot">
+                    <button
+                      type="button"
+                      className="btn"
+                      data-copied={copiedKey === "short"}
+                      onClick={() => handleCopy("short", result.shortAlt)}
+                    >
+                      {copiedKey === "short" ? "✓ コピーしました" : "この案をコピー"}
+                    </button>
+                  </div>
+                </article>
               </div>
             )}
           </section>

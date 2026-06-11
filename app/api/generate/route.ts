@@ -1,27 +1,64 @@
 import { NextRequest, NextResponse } from "next/server";
+import { writeFile, unlink } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import {
   GenerateRequestSchema,
   GenerateResponse,
-  PostVariation,
+  POST_PATTERNS,
+  POST_PATTERN_LABELS,
+  PostPattern,
 } from "@/lib/types";
-import { SYSTEM_PROMPT, buildUserPrompt } from "@/lib/prompt";
-import { generateMockVariations } from "@/lib/mock-generator";
+import { SYSTEM_PROMPT, buildUserPrompt, buildImagePromptSection } from "@/lib/prompt";
+import { generateMockPatterns } from "@/lib/mock-generator";
+import {
+  LOCAL_MODEL,
+  extractJson,
+  generateWithClaude,
+  isLocalClaudeEnabled,
+} from "@/lib/claude-cli";
 
-const DEFAULT_MODEL = "anthropic/claude-sonnet-4-6";
+/** MIMEタイプ → 一時ファイルの拡張子 */
+const IMAGE_EXT: Record<string, string> = {
+  "image/png": "png",
+  "image/jpeg": "jpg",
+  "image/jpg": "jpg",
+  "image/webp": "webp",
+  "image/gif": "gif",
+};
 
-/** Claudeに構造化出力で返してもらうスキーマ */
+/** 添付画像の data URL を一時ファイルに書き出してパスを返す。形式不正なら null。 */
+async function writeImageToTemp(dataUrl: string): Promise<string | null> {
+  const match = /^data:(image\/[\w.+-]+);base64,(.+)$/s.exec(dataUrl);
+  if (!match) return null;
+  const [, mime, b64] = match;
+  const ext = IMAGE_EXT[mime] ?? "png";
+  const path = join(tmpdir(), `meo-upload-${randomUUID()}.${ext}`);
+  await writeFile(path, Buffer.from(b64, "base64"));
+  return path;
+}
+
+/** Claudeに構造化出力で返してもらうスキーマ（3パターン×6項目） */
 const AiOutputSchema = z.object({
-  variations: z
+  patterns: z
     .array(
       z.object({
+        patternKey: z.enum(POST_PATTERNS),
+        title: z.string(),
         body: z.string(),
-        hashtags: z.array(z.string()),
         cta: z.string(),
+        searchIntent: z.string(),
+        meoKeywords: z.array(z.string()),
+        notes: z.string(),
       }),
     )
     .min(1),
 });
+
+/** JSONのみで返すよう指示する出力フォーマット指定 */
+const JSON_INSTRUCTION = `\n\n# 出力形式（厳守）\n説明やコードフェンスを付けず、以下のJSONのみを出力してください。\n{"patterns":[{"patternKey":"visit|problem|announce","title":"投稿タイトル案","body":"投稿本文","cta":"CTA文","searchIntent":"狙っている検索意図","meoKeywords":["MEOキーワード"],"notes":"改善案・注意点"}]}`;
 
 export async function POST(request: NextRequest) {
   let parsed;
@@ -41,52 +78,62 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const hasKey = Boolean(process.env.AI_GATEWAY_API_KEY);
+  // ローカルClaude（Opus 4.8）で生成。失敗時はモックにフォールバック。
+  if (isLocalClaudeEnabled()) {
+    // 添付画像があれば一時ファイル化し、Claude に Read で読み込ませる
+    let imagePath: string | null = null;
+    try {
+      let userPrompt = buildUserPrompt(parsed);
+      if (parsed.imageDataUrl) {
+        imagePath = await writeImageToTemp(parsed.imageDataUrl);
+        if (imagePath) userPrompt += buildImagePromptSection(imagePath);
+      }
 
-  // APIキーが無ければモック生成で即応答（試作の体験確認用）
-  if (!hasKey) {
-    const response: GenerateResponse = {
-      variations: generateMockVariations(parsed),
-      source: "mock",
-    };
-    return NextResponse.json(response);
+      const raw = await generateWithClaude(
+        SYSTEM_PROMPT,
+        userPrompt + JSON_INSTRUCTION,
+        imagePath ? { allowedTools: ["Read"] } : {},
+      );
+      const object = AiOutputSchema.parse(extractJson(raw));
+
+      const patterns: PostPattern[] = object.patterns.map((p) => {
+        const body = p.body.trim();
+        return {
+          patternKey: p.patternKey,
+          patternLabel: POST_PATTERN_LABELS[p.patternKey],
+          title: p.title.trim(),
+          body,
+          cta: p.cta.trim(),
+          searchIntent: p.searchIntent.trim(),
+          meoKeywords: p.meoKeywords
+            .map((k) => k.trim().replace(/^#/, ""))
+            .filter(Boolean),
+          notes: p.notes.trim(),
+          charCount: [...body].length,
+        };
+      });
+
+      const response: GenerateResponse = {
+        patterns,
+        source: "ai",
+        model: LOCAL_MODEL,
+      };
+      return NextResponse.json(response);
+    } catch (err) {
+      console.error(
+        "[generate] ローカルClaude生成に失敗、モックにフォールバック:",
+        err,
+      );
+    } finally {
+      // 一時画像ファイルは必ず後始末する
+      if (imagePath) await unlink(imagePath).catch(() => {});
+    }
   }
 
-  const model = process.env.MEO_GENERATION_MODEL || DEFAULT_MODEL;
-
-  try {
-    // 動的importで、キー未設定環境でのバンドル/起動を軽くする
-    const { generateObject } = await import("ai");
-    const { object } = await generateObject({
-      model,
-      schema: AiOutputSchema,
-      system: SYSTEM_PROMPT,
-      prompt: buildUserPrompt(parsed),
-      temperature: 0.8,
-    });
-
-    const variations: PostVariation[] = object.variations
-      .slice(0, parsed.count)
-      .map((v) => ({
-        body: v.body.trim(),
-        hashtags: v.hashtags.map((h) => (h.startsWith("#") ? h : `#${h}`)),
-        cta: v.cta.trim(),
-        charCount: [...v.body.trim()].length,
-      }));
-
-    const response: GenerateResponse = {
-      variations,
-      source: "ai",
-      model,
-    };
-    return NextResponse.json(response);
-  } catch (err) {
-    console.error("[generate] AI生成に失敗、モックにフォールバック:", err);
-    // 生成失敗時もUIを止めないようモックで返す
-    const response: GenerateResponse = {
-      variations: generateMockVariations(parsed),
-      source: "mock",
-    };
-    return NextResponse.json(response);
-  }
+  // フォールバック（ローカルClaude無効 or 生成失敗時）
+  const response: GenerateResponse = {
+    patterns: generateMockPatterns(parsed),
+    source: "mock",
+  };
+  return NextResponse.json(response);
 }

@@ -1,7 +1,7 @@
 import Link from "next/link";
 import "./ui.css";
 
-export type ModuleKey = "post" | "review" | "report" | "rank";
+export type ModuleKey = "post" | "review" | "report" | "rank" | "settings";
 
 interface ModuleDef {
   key: ModuleKey;
@@ -15,6 +15,7 @@ const MODULES: ModuleDef[] = [
   { key: "review", label: "口コミ返信", href: "/reviews" },
   { key: "report", label: "レポート", href: "/reports" },
   { key: "rank", label: "順位管理", href: "#", soon: true },
+  { key: "settings", label: "設定・連携", href: "/settings" },
 ];
 
 export default function AppBar({ active }: { active: ModuleKey }) {
