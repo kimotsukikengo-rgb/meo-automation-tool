@@ -16,16 +16,60 @@ export const LENGTHS = ["short", "standard", "long"] as const;
 export type Length = (typeof LENGTHS)[number];
 
 export const LENGTH_LABELS: Record<Length, string> = {
-  short: "短め（〜120字）",
-  standard: "標準（〜250字）",
-  long: "長め（〜400字）",
+  short: "短文型 200〜300字（BtoB・機能訴求）",
+  standard: "中文型 350〜500字（信頼訴求）",
+  long: "長文型 500〜700字（体験・BtoC）",
 };
 
-export const LENGTH_TARGET: Record<Length, number> = {
-  short: 120,
-  standard: 250,
-  long: 400,
+/**
+ * 業種帯ごとの文字数レンジ（合格基準より）。
+ * 「上限の目安」ではなく「下限を下回らない」レンジとして扱う。
+ */
+export const LENGTH_TARGET: Record<Length, { min: number; max: number }> = {
+  short: { min: 200, max: 300 },
+  standard: { min: 350, max: 500 },
+  long: { min: 500, max: 700 },
 };
+
+/** 絵文字の方針（店舗単位で上書き可。初期値は業種から推定） */
+export const EMOJI_POLICIES = ["none", "light", "standard"] as const;
+export type EmojiPolicy = (typeof EMOJI_POLICIES)[number];
+
+export const EMOJI_POLICY_LABELS: Record<EmojiPolicy, string> = {
+  none: "なし",
+  light: "控えめ（1〜3個）",
+  standard: "標準（2〜8個）",
+};
+
+/** 方針別の絵文字数の許容レンジ（1投稿あたり） */
+export const EMOJI_POLICY_RANGE: Record<EmojiPolicy, { min: number; max: number }> = {
+  none: { min: 0, max: 0 },
+  light: { min: 1, max: 3 },
+  standard: { min: 2, max: 8 },
+};
+
+/** 業種文字列から絵文字方針の初期値を推定（BtoB系は控えめ、それ以外は標準） */
+const BTOB_HINTS = [
+  "製造",
+  "会計",
+  "税理",
+  "司法",
+  "行政書士",
+  "土地家屋",
+  "測量",
+  "OEM",
+  "卸",
+  "BtoB",
+  "法人",
+  "建設",
+  "工業",
+  "産業",
+];
+export function inferEmojiPolicy(category: string): EmojiPolicy {
+  const c = category.trim();
+  if (!c) return "standard";
+  return BTOB_HINTS.some((h) => c.includes(h)) ? "light" : "standard";
+}
 
 /** 投稿パターン（プロンプトの A/B/C） */
 export const POST_PATTERNS = ["visit", "problem", "announce"] as const;
@@ -53,6 +97,7 @@ export const GenerateRequestSchema = z.object({
   ngExpressions: z.string().max(300).optional().default(""),
   tone: z.enum(TONES),
   length: z.enum(LENGTHS),
+  emojiPolicy: z.enum(EMOJI_POLICIES).default("standard"),
   /** 投稿に使う画像（PCからアップロード、縮小済みJPEGのdata URL）。任意。 */
   imageDataUrl: z
     .string()
@@ -82,10 +127,39 @@ export interface PostPattern {
   charCount: number;
 }
 
+/** 品質チェック1項目の判定 */
+export type QualityStatus = "pass" | "warn" | "fail";
+
+export interface QualityItem {
+  /** 項目キー（length / hashtag / emoji / structure / repetition / keyword / toneLeak / hook / naturalness 等） */
+  key: string;
+  /** 表示名 */
+  label: string;
+  status: QualityStatus;
+  /** 理由・実測値 */
+  detail: string;
+}
+
+/** 1パターン分の品質判定 */
+export interface PatternQuality {
+  patternKey: PostPatternKey;
+  items: QualityItem[];
+  /** ハードfail（文字数・HT・絵文字・構成比・トーンラベル混入）が1件以上 */
+  hardFail: boolean;
+  /** 1回の自動修正パスを通したか */
+  repaired: boolean;
+}
+
+export interface QualityReport {
+  patterns: PatternQuality[];
+}
+
 /** API レスポンス */
 export interface GenerateResponse {
   patterns: PostPattern[];
-  /** "ai" = Claude生成 / "mock" = APIキー未設定時のサンプル生成 */
+  /** "ai" = Claude生成 / "mock" = ローカルClaude無効・生成失敗時のサンプル生成 */
   source: "ai" | "mock";
   model?: string;
+  /** 合格基準に対する自動チェック結果（mock時は付かない） */
+  qualityReport?: QualityReport;
 }

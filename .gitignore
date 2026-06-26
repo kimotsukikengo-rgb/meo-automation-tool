@@ -19,3 +19,7 @@ next-env.d.ts
 node_modules/
 video/out/
 video/.cache/
+
+# 顧客データ（PUBLICリポジトリに公開しない。ルート直下のCSV/PDFのみ対象）
+/*.csv
+/*.pdf

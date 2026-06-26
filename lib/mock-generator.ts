@@ -4,7 +4,6 @@ import {
   POST_PATTERN_LABELS,
   PostPattern,
   PostPatternKey,
-  TONE_LABELS,
 } from "./types";
 
 /**
@@ -45,10 +44,9 @@ function buildPattern(
 ): Omit<PostPattern, "charCount"> {
   const opener = TONE_OPENER[req.tone] ?? "";
   const { where, services, point, cta } = ingredients(req);
-  const toneLabel = TONE_LABELS[req.tone];
 
   if (key === "visit") {
-    const body = `${opener}${where}${req.storeName}です。「${req.theme}」をご案内します。${point}を${toneLabel}雰囲気でご用意してお待ちしています。${req.category}をお探しなら、ぜひこの機会にお立ち寄りください。`;
+    const body = `${opener}${where}${req.storeName}です。「${req.theme}」をご案内します。${point}をご用意してお待ちしています。${req.category}をご検討中の方は、お気軽にどうぞ。`;
     return {
       patternKey: key,
       patternLabel: POST_PATTERN_LABELS[key],

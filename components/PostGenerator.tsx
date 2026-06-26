@@ -4,11 +4,16 @@ import { useRef, useState } from "react";
 import "./ui.css";
 import AppBar from "./AppBar";
 import {
+  EMOJI_POLICIES,
+  EMOJI_POLICY_LABELS,
+  EmojiPolicy,
   GenerateResponse,
+  inferEmojiPolicy,
   Length,
   LENGTHS,
   LENGTH_LABELS,
   LENGTH_TARGET,
+  QualityStatus,
   Tone,
   TONES,
   TONE_LABELS,
@@ -36,6 +41,7 @@ interface FormState {
   ngExpressions: string;
   tone: Tone;
   length: Length;
+  emojiPolicy: EmojiPolicy;
 }
 
 const INITIAL: FormState = {
@@ -53,6 +59,7 @@ const INITIAL: FormState = {
   ngExpressions: "",
   tone: "friendly",
   length: "standard",
+  emojiPolicy: "standard",
 };
 
 /** デモ用サンプル（押すたびに切り替わる） */
@@ -72,6 +79,7 @@ const SAMPLES: FormState[] = [
     ngExpressions: "「完治」「治る」などの医療的断定表現",
     tone: "friendly",
     length: "standard",
+    emojiPolicy: "standard",
   },
   {
     storeName: "トラットリア・ソルレオーネ 横浜店",
@@ -88,6 +96,7 @@ const SAMPLES: FormState[] = [
     ngExpressions: "",
     tone: "energetic",
     length: "standard",
+    emojiPolicy: "standard",
   },
   {
     storeName: "hair atelier LUCE 表参道",
@@ -104,8 +113,15 @@ const SAMPLES: FormState[] = [
     ngExpressions: "「絶対」「No.1」などの根拠のない最上級表現",
     tone: "premium",
     length: "short",
+    emojiPolicy: "light",
   },
 ];
+
+const QUALITY_ICON: Record<QualityStatus, string> = {
+  pass: "✅",
+  warn: "⚠️",
+  fail: "❌",
+};
 
 export default function PostGenerator() {
   const [form, setForm] = usePersistentState<FormState>("meo:post:form", INITIAL);
@@ -196,10 +212,8 @@ export default function PostGenerator() {
   async function handleCopy(index: number) {
     const pattern = result?.patterns[index];
     if (!pattern) return;
-    const tags = pattern.meoKeywords.map((k) => `#${k}`).join(" ");
-    const text = [titles[index], "", bodies[index], "", tags, pattern.cta].join(
-      "\n",
-    );
+    // GBP投稿にハッシュタグは入れない。タイトル＋本文＋CTAのみコピーする。
+    const text = [titles[index], "", bodies[index], "", pattern.cta].join("\n");
     try {
       await navigator.clipboard.writeText(text);
       setCopiedIndex(index);
@@ -511,7 +525,28 @@ export default function PostGenerator() {
             </div>
 
             <div className="field">
-              <label htmlFor="length">文字数の目安</label>
+              <label>
+                絵文字{" "}
+                <span className="hint">
+                  業種から推奨: {EMOJI_POLICY_LABELS[inferEmojiPolicy(form.category)]}
+                </span>
+              </label>
+              <div className="segment" role="group" aria-label="絵文字方針">
+                {EMOJI_POLICIES.map((p) => (
+                  <button
+                    key={p}
+                    type="button"
+                    data-active={form.emojiPolicy === p}
+                    onClick={() => update("emojiPolicy", p)}
+                  >
+                    {EMOJI_POLICY_LABELS[p]}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="field">
+              <label htmlFor="length">文字数の目安（業種帯）</label>
               <select
                 id="length"
                 value={form.length}
@@ -554,10 +589,16 @@ export default function PostGenerator() {
                 <span className="source-badge" data-source={result.source}>
                   {result.source === "ai"
                     ? `● AI生成${result.model ? `（${result.model}）` : ""}`
-                    : "● サンプル生成（APIキー未設定）"}
+                    : "● サンプル生成（実AI未使用）"}
                 </span>
               )}
             </div>
+
+            {result?.source === "mock" && (
+              <div className="mock-warn">
+                ⚠️ これはサンプル（テンプレート）生成です。実際のAI生成ではなく、合格チェックも適用されていません。実生成を有効にしてください。
+              </div>
+            )}
 
             {result && gbpStores.length > 0 && (
               <div className="gbp-bar">
@@ -612,7 +653,10 @@ export default function PostGenerator() {
               <div className="cards">
                 {result.patterns.map((p, i) => {
                   const count = [...(bodies[i] ?? "")].length;
-                  const over = count > target;
+                  const outOfRange = count < target.min || count > target.max;
+                  const quality = result.qualityReport?.patterns.find(
+                    (q) => q.patternKey === p.patternKey,
+                  );
                   return (
                     <article
                       className="postcard"
@@ -626,8 +670,8 @@ export default function PostGenerator() {
                           </span>
                           {p.patternLabel}
                         </span>
-                        <span className="charcount" data-over={over}>
-                          {count} 字 / 目安 {target} 字
+                        <span className="charcount" data-over={outOfRange}>
+                          {count} 字 / 目安 {target.min}〜{target.max} 字
                         </span>
                       </div>
                       <div className="postcard-body">
@@ -659,10 +703,13 @@ export default function PostGenerator() {
                           aria-label={`${p.patternLabel} 本文`}
                         />
 
+                        <label className="mini-label">
+                          MEOキーワード（参考・本文に「#」は入れません）
+                        </label>
                         <div className="hashtags">
                           {p.meoKeywords.map((k, ki) => (
                             <span className="chip" key={ki}>
-                              #{k}
+                              {k}
                             </span>
                           ))}
                         </div>
@@ -682,6 +729,28 @@ export default function PostGenerator() {
                             <span className="meta-value">{p.notes}</span>
                           </div>
                         </div>
+
+                        {quality && (
+                          <div className="quality">
+                            <span className="mini-label">
+                              合格チェック
+                              {quality.repaired && (
+                                <em className="quality-repaired">（自動修正済み）</em>
+                              )}
+                            </span>
+                            <ul className="quality-list">
+                              {quality.items.map((it, qi) => (
+                                <li key={qi} data-status={it.status}>
+                                  <span className="q-icon" aria-hidden>
+                                    {QUALITY_ICON[it.status]}
+                                  </span>
+                                  <span className="q-label">{it.label}</span>
+                                  <span className="q-detail">{it.detail}</span>
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
                       </div>
                       <div className="postcard-foot">
                         <button

@@ -9,7 +9,10 @@ import { tmpdir } from "node:os";
 
 export const LOCAL_MODEL = process.env.MEO_LOCAL_MODEL || "claude-opus-4-8";
 const CLAUDE_BIN = process.env.CLAUDE_CLI_PATH || "claude";
-const TIMEOUT_MS = Number(process.env.MEO_LOCAL_TIMEOUT_MS || 120000);
+// Opus 4.8 で3パターンを headless 生成すると単一呼び出しで120秒を超えることがあり、
+// 既定120秒だとタイムアウト→モックに落ちていた。実測（生成+採点で約141秒、
+// 自動修正パスが走るとさらに延びる）に基づき、単一呼び出しが確実に収まる値にする。
+const TIMEOUT_MS = Number(process.env.MEO_LOCAL_TIMEOUT_MS || 300000);
 
 /** ローカルClaude生成を使うか（既定:ON。無効化は MEO_LOCAL_CLAUDE=off） */
 export function isLocalClaudeEnabled(): boolean {
@@ -22,6 +25,8 @@ export interface GenerateOptions {
    * 添付画像を読み込ませる場合は ["Read"] を渡す。
    */
   allowedTools?: string[];
+  /** モデルの上書き（未指定なら LOCAL_MODEL）。採点はHaiku等に切り替える用途。 */
+  model?: string;
 }
 
 /**
@@ -37,7 +42,7 @@ export function generateWithClaude(
     const args = [
       "-p",
       "--model",
-      LOCAL_MODEL,
+      options.model || LOCAL_MODEL,
       "--output-format",
       "json",
       // Claude Code 既定のコーディング用システムプロンプトを置き換え、
