@@ -14,3 +14,12 @@ next-env.d.ts
 
 # Claude Code / harness internal state (環境固有・共有不要)
 .claude/
+
+# Remotion video sub-project (依存と生成物は除外、ソースのみ追跡)
+node_modules/
+video/out/
+video/.cache/
+
+# 顧客データ（PUBLICリポジトリに公開しない。ルート直下のCSV/PDFのみ対象）
+/*.csv
+/*.pdf

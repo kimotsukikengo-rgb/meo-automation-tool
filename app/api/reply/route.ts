@@ -3,16 +3,27 @@ import { z } from "zod";
 import { ReplyRequestSchema, ReplyResponse } from "@/lib/review-types";
 import { SYSTEM_PROMPT, buildUserPrompt } from "@/lib/review-prompt";
 import { generateMockReply } from "@/lib/review-mock";
-
-const DEFAULT_MODEL = "anthropic/claude-sonnet-4-6";
+import {
+  LOCAL_MODEL,
+  extractJson,
+  generateWithClaude,
+  isLocalClaudeEnabled,
+} from "@/lib/claude-cli";
 
 /** Claudeに構造化出力で返してもらうスキーマ */
 const AiOutputSchema = z.object({
   sentiment: z.enum(["positive", "neutral", "negative"]),
   needsEscalation: z.boolean(),
   escalationReason: z.string().optional(),
-  replies: z.array(z.object({ body: z.string() })).min(1),
+  reply: z.string(),
+  intent: z.string(),
+  risks: z.array(z.string()),
+  politeAlt: z.string(),
+  shortAlt: z.string(),
 });
+
+/** JSONのみで返すよう指示する出力フォーマット指定 */
+const JSON_INSTRUCTION = `\n\n# 出力形式（厳守）\n説明やコードフェンスを付けず、以下のJSONのみを出力してください。\n{"sentiment":"positive|neutral|negative","needsEscalation":false,"escalationReason":"エスカレーションが必要な場合の理由","reply":"口コミ返信文","intent":"返信の意図","risks":["注意すべきリスク"],"politeAlt":"より丁寧な別案","shortAlt":"短めの別案"}`;
 
 export async function POST(request: NextRequest) {
   let parsed;
@@ -32,39 +43,33 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const hasKey = Boolean(process.env.AI_GATEWAY_API_KEY);
+  // ローカルClaude（Opus 4.8）で生成。失敗時はモックにフォールバック。
+  if (isLocalClaudeEnabled()) {
+    try {
+      const raw = await generateWithClaude(
+        SYSTEM_PROMPT,
+        buildUserPrompt(parsed) + JSON_INSTRUCTION,
+      );
+      const object = AiOutputSchema.parse(extractJson(raw));
 
-  // APIキーが無ければモック生成で即応答
-  if (!hasKey) {
-    return NextResponse.json(generateMockReply(parsed));
+      const response: ReplyResponse = {
+        sentiment: object.sentiment,
+        needsEscalation: object.needsEscalation,
+        escalationReason: object.escalationReason,
+        reply: object.reply.trim(),
+        intent: object.intent.trim(),
+        risks: object.risks.map((r) => r.trim()).filter(Boolean),
+        politeAlt: object.politeAlt.trim(),
+        shortAlt: object.shortAlt.trim(),
+        source: "ai",
+        model: LOCAL_MODEL,
+      };
+      return NextResponse.json(response);
+    } catch (err) {
+      console.error("[reply] ローカルClaude生成に失敗、モックにフォールバック:", err);
+    }
   }
 
-  const model = process.env.MEO_GENERATION_MODEL || DEFAULT_MODEL;
-
-  try {
-    const { generateObject } = await import("ai");
-    const { object } = await generateObject({
-      model,
-      schema: AiOutputSchema,
-      system: SYSTEM_PROMPT,
-      prompt: buildUserPrompt(parsed),
-      temperature: 0.6,
-    });
-
-    const response: ReplyResponse = {
-      sentiment: object.sentiment,
-      needsEscalation: object.needsEscalation,
-      escalationReason: object.escalationReason,
-      replies: object.replies.slice(0, parsed.count).map((r) => ({
-        body: r.body.trim(),
-        charCount: [...r.body.trim()].length,
-      })),
-      source: "ai",
-      model,
-    };
-    return NextResponse.json(response);
-  } catch (err) {
-    console.error("[reply] AI生成に失敗、モックにフォールバック:", err);
-    return NextResponse.json(generateMockReply(parsed));
-  }
+  // フォールバック（ローカルClaude無効 or 生成失敗時）
+  return NextResponse.json(generateMockReply(parsed));
 }

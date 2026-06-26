@@ -1,23 +1,16 @@
 import {
   GenerateRequest,
-  PostVariation,
-  POST_TYPE_LABELS,
-  TONE_LABELS,
+  POST_PATTERNS,
+  POST_PATTERN_LABELS,
+  PostPattern,
+  PostPatternKey,
 } from "./types";
 
 /**
  * APIキー未設定時のサンプル生成。
- * Claudeを呼ばずに、入力値を織り込んだ「それらしい」投稿案を即時に返す。
+ * Claudeを呼ばずに、入力値を織り込んだ「それらしい」3パターンの投稿案を即時に返す。
  * 試作のUI・体験を、鍵なしでも確認できるようにするのが目的。
  */
-
-const ANGLES = [
-  { tag: "価値訴求", lead: "今いちばんおすすめしたいのは" },
-  { tag: "お悩み起点", lead: "こんなお悩みはありませんか？" },
-  { tag: "限定感", lead: "この時期だけの特別なご案内です。" },
-  { tag: "実績・安心", lead: "多くのお客様にご利用いただいています。" },
-  { tag: "ストーリー", lead: "スタッフの想いを込めてご用意しました。" },
-];
 
 const TONE_OPENER: Record<string, string> = {
   friendly: "こんにちは！",
@@ -26,49 +19,81 @@ const TONE_OPENER: Record<string, string> = {
   premium: "上質なひとときを。",
 };
 
-function buildBody(req: GenerateRequest, index: number): string {
-  const angle = ANGLES[index % ANGLES.length];
+/** 共通の素材 */
+function ingredients(req: GenerateRequest) {
+  const where = req.area ? `${req.area}の` : "";
+  const services = req.mainServices || req.category;
+  const point = req.strengths || req.message || `${req.theme}の魅力`;
+  const cta = req.desiredCta || "ご予約・ご来店をお待ちしております。";
+  return { where, services, point, cta };
+}
+
+function keywords(req: GenerateRequest): string[] {
+  const base = [req.area, req.category, req.mainServices]
+    .filter((s): s is string => Boolean(s))
+    .flatMap((s) => s.split(/[、,／/・\s]+/))
+    .map((s) => s.trim())
+    .filter(Boolean);
+  const theme = req.theme.slice(0, 12);
+  return Array.from(new Set([...base, theme])).slice(0, 6);
+}
+
+function buildPattern(
+  req: GenerateRequest,
+  key: PostPatternKey,
+): Omit<PostPattern, "charCount"> {
   const opener = TONE_OPENER[req.tone] ?? "";
-  const points = req.keyPoints
-    ? req.keyPoints
-    : `${req.theme}にまつわる魅力`;
+  const { where, services, point, cta } = ingredients(req);
 
-  const lines = [
-    `${opener}${req.storeName}です。`,
-    `${angle.lead}「${req.theme}」。`,
-    `${points}を、${TONE_LABELS[req.tone]}雰囲気でお届けします。`,
-    `${req.category}をお探しの方は、ぜひこの機会にお立ち寄りください。`,
-  ];
-  return lines.join("");
-}
-
-function buildHashtags(req: GenerateRequest, index: number): string[] {
-  const base = [req.category.replace(/\s+/g, ""), req.storeName.replace(/\s+/g, "")];
-  const themeTag = req.theme.slice(0, 10).replace(/\s+/g, "");
-  const extra = ["MEO", "地域密着", "新着情報"];
-  return [...base, themeTag, extra[index % extra.length]]
-    .filter(Boolean)
-    .slice(0, 4)
-    .map((t) => `#${t}`);
-}
-
-function buildCta(req: GenerateRequest, index: number): string {
-  const ctas = [
-    "詳しくはプロフィールのリンク、またはお電話でお問い合わせください。",
-    "ご予約・ご来店をスタッフ一同お待ちしております。",
-    `${POST_TYPE_LABELS[req.postType]}の詳細はお気軽にお尋ねください。`,
-  ];
-  return ctas[index % ctas.length];
-}
-
-export function generateMockVariations(req: GenerateRequest): PostVariation[] {
-  return Array.from({ length: req.count }, (_, i) => {
-    const body = buildBody(req, i);
+  if (key === "visit") {
+    const body = `${opener}${where}${req.storeName}です。「${req.theme}」をご案内します。${point}をご用意してお待ちしています。${req.category}をご検討中の方は、お気軽にどうぞ。`;
     return {
+      patternKey: key,
+      patternLabel: POST_PATTERN_LABELS[key],
+      title: `${where}${req.category}なら｜${req.theme}`,
       body,
-      hashtags: buildHashtags(req, i),
-      cta: buildCta(req, i),
-      charCount: [...body].length,
+      cta,
+      searchIntent: `「${req.area || "エリア"} ${req.category}」で来店先を比較検討しているユーザー`,
+      meoKeywords: keywords(req),
+      notes:
+        "本文冒頭に地域名＋業種が来るよう調整済み。予約URLはボタンに設定し、本文には直書きしないでください。",
     };
+  }
+
+  if (key === "problem") {
+    const target = req.targetCustomer || "こんなお悩みをお持ちの方";
+    const body = `${opener}「${req.theme}」でお困りではありませんか？${where}${req.storeName}では、${target}に向けて${services}をご提供しています。${point}で、はじめての方にも安心してご利用いただけます。`;
+    return {
+      patternKey: key,
+      patternLabel: POST_PATTERN_LABELS[key],
+      title: `その悩み、${where}${req.category}にご相談ください`,
+      body,
+      cta: req.desiredCta || "まずはお気軽に詳細をご確認ください。",
+      searchIntent: "悩み・症状・目的から解決手段を探している潜在顧客",
+      meoKeywords: keywords(req),
+      notes:
+        "悩み訴求は誇大・効果効能の断定にならないよう注意。具体的な利用シーンを1つ足すとさらに刺さります。",
+    };
+  }
+
+  // announce
+  const campaign = req.campaign || req.theme;
+  const body = `${opener}${where}${req.storeName}より、${campaign}のお知らせです。${point}をこの機会にぜひご体験ください。${services}をご検討中の方は、詳細をご覧のうえお早めにどうぞ。`;
+  return {
+    patternKey: key,
+    patternLabel: POST_PATTERN_LABELS[key],
+    title: `【お知らせ】${campaign}`,
+    body,
+    cta: req.desiredCta || "詳細の確認・ご予約はこちらから。",
+    searchIntent: "店舗名・キャンペーン名で最新情報を確認しにきたユーザー",
+    meoKeywords: keywords(req),
+    notes: "お知らせ型は期間・条件の明記が有効。終了後は投稿の更新・削除を忘れずに。",
+  };
+}
+
+export function generateMockPatterns(req: GenerateRequest): PostPattern[] {
+  return POST_PATTERNS.map((key) => {
+    const p = buildPattern(req, key);
+    return { ...p, charCount: [...p.body].length };
   });
 }
